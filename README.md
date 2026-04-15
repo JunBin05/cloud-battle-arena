@@ -37,7 +37,7 @@ npm install -g firebase-tools
 
 ### 1. Clone the Repository
 
-Open a terminal in your preferred folder (For windows explorer, right click empty space and choose "Open In Terminal")
+Open terminal / VScode in your preferred folder (For windows explorer, right click empty space and choose "Open In Terminal" or "Open in Code")
 
 Clone the repository by typing the following command:
 ```bash
@@ -46,6 +46,7 @@ cd cloud-battle-arena
 ```
 
 ### 2. Build and Run Backend Locally
+Make sure Docker Desktop is open, then run the following command:
 
 ```bash
 cd OgarII
@@ -53,13 +54,18 @@ docker build -t agar-server-local .
 docker run -d -it -p 8080:8080 --name my-local-server agar-server-local
 ```
 
+In Docker Desktop > Containers, there should be a container running.
+This means the container is successfully deployed locally!
+
 ### 3. Test Frontend Connection
 
 * Go to `Cigar/www`
 * Open `index.html` in Chrome
-* Press "Esc" to bring up the menu
+* Press **Esc** to bring up the menu
 * Enter server IP: `127.0.0.1:8080`
 * Click **Play**
+
+You might need to click Play a few times for the game to connect to backend.
 
 If you spawn successfully → you're ready for the cloud 🚀
 
@@ -67,16 +73,24 @@ If you spawn successfully → you're ready for the cloud 🚀
 
 ## 🐳 Part 2: Build & Push Backend to GCP
 
-### 1. Create Artifact Registry
+### 1. Log into GCP
 
-* Go to **Artifact Registry** in GCP
+* Go to Google Cloud Platform (GCP) : https://console.cloud.google.com/
+* Sign in with your Google Account
+* Open project picker with **Ctrl+O** or clicking the button that contains your project name on top left corner
+* Select a project you like OR create a new project
+* Take note of your project ID (will be used later)
+
+### 2. Create Artifact Registry
+
+* Go to **Artifact Registry** in GCP, enable Artifact Registry API if asked
 * Create repository:
 
   * Name: `agar-repo`
   * Format: Docker
   * Region: e.g. `asia-southeast1`
 
-### 2. Build & Push Image
+### 3. Build & Push Image
 
 ```bash
 gcloud auth configure-docker asia-southeast1-docker.pkg.dev
@@ -86,29 +100,27 @@ docker build -t asia-southeast1-docker.pkg.dev/<PROJECT_ID>/agar-repo/agar-serve
 docker push asia-southeast1-docker.pkg.dev/<PROJECT_ID>/agar-repo/agar-server:v1
 ```
 
-If an docker image show up in your artiface registry repository, you are good to go!!
+If an docker image show up in your artifact registry repository, you are good to go!!
 
 ---
 
 ## 🚀 Part 3: Deploy Backend (Compute Engine)
 
-### 1. Add Artifact Registry Reader role to Service Account
+### 1. Create VM & Deploy Container
 
-* Go to **IAM & Admin → IAM → Grant Access**
-* Grant access to your project
-  * New Principals: `[your_project_number]-compute@developer.gservice.com`. Your project number can be viewed at top right corner `⋮` icon > Project settings.
-  * Role: `Artiface Registry Reader`
-  * Click **Save**
-* A new principal should appear at the list below.
+* Go to **Compute Engine → VM Instances → Create Instance**, enable Compute Engine API if asked
+* Follow the settings below:
 
-### 2. Create VM & Deploy Container
+#### VM Settings
 
-* Go to **Compute Engine → VM Instances → Create Instance**
 * Name: `agar-arena-vm`
+* Region: `asia-southeast1 (Signapore)`
+* Machine Series: `E2`
 * Machine type: `e2-micro` or `e2-medium`
 
 #### Container Settings
 
+* Go to **OS and Storage**
 * Click **Deploy Container**
 * Image:
 
@@ -116,19 +128,23 @@ If an docker image show up in your artiface registry repository, you are good to
 asia-southeast1-docker.pkg.dev/<PROJECT_ID>/agar-repo/agar-server:v1
 ```
 
-Enable:
+**Enable (Important)**:
 
 * Allocate a pseudo-TTY (-t)
 * Keep STDIN open (-i)
 
-#### Firewall
-
-* Allow HTTP
-* Allow HTTPS
-
 Click **Create**
 
 ---
+
+### 2. Add Artifact Registry Reader role to Service Account
+
+* Go to **IAM & Admin → IAM → Grant Access**
+* Grant access to your project
+  * New Principals: `[your_project_number]-compute@developer.gservice.com`. Your project number can be viewed on top right corner `⋮` icon > Project settings.
+  * Role: `Artifact Registry Reader`
+  * Click **Save**
+* A new principal should appear on the list below.
 
 ### 3. Open Port 8080
 
@@ -154,7 +170,13 @@ If booted up completed successfully, yellow box shows up when you ssh into vm. T
 docker ps
 ```
 
+To test if you can connect to the game server, use the local frontend (The index.html you opened earlier) and enter the server ip:
 
+```
+<YOUR_VM_IP>:8080
+```
+
+The VM IP address can be located at Compute Engine > VM instances, under **External IP**.
 
 ---
 
@@ -162,12 +184,25 @@ docker ps
 
 ### 1. Initialize Firebase
 
+Make sure you change your directory into `...\cloud-battle-arena\Cigar`
+
+```bash
+cd ..
+cd Cigar
+```
+
+Log into firebase, then create a project to deploy our frontend on
+
 ```bash
 firebase login
 firebase init hosting
 ```
 
-Use these settings:
+* Confirm that we are initializing a project in **...\cloud-battle-arena\Cigar**, Then type `Y`
+* Choose `Create a new project`
+* Select a project id and project name of your choice
+
+Wait until the project is successfully created, then use these settings:
 
 * Public directory: `www`
 * Single-page app: `No`
@@ -175,6 +210,8 @@ Use these settings:
 * Overwrite index.html: **No (IMPORTANT)**
 
 ### 2. Deploy
+
+This pushes our public directory you have selected just now into firebase.
 
 ```bash
 firebase deploy
@@ -192,15 +229,16 @@ https://your-project.web.app
 
 ### ⚠️ Enable Insecure Content (Important)
 
-Because Firebase uses HTTPS and your backend uses `ws://`, Chrome blocks it initially.
+Because Firebase uses HTTPS but your backend uses `ws://` which is insecure, Chrome blocks it initially.
 
 Steps:
 
-1. Open your Firebase URL
-2. Click 🔒 icon
-3. Go to **Site Settings**
-4. Allow **Insecure Content**
-5. Refresh page
+1. Make sure you are using hotspot instead of UM Wifi (UM wifi blocks the connection to our server too)
+2. Open your Firebase URL
+3. Click 🔒 icon
+4. Go to **Site Settings**
+5. Allow **Insecure Content**
+6. Refresh page
 
 ### Connect to Server
 
@@ -271,6 +309,21 @@ docker run -d -it -p 8080:8080 --name agar-server <Insert_container-id_or_name>
 ```
 
 ---
+
+## 🧹 Clean up
+
+To prevent accidental cost, please follow the instructions below after the workshop session ends:
+
+### Deleting VM instance
+
+* Go to **Compute Engine → VM Instances**
+* Click on `⋮` of your vm instance, then click delete
+
+### Deleting Artifact Registry Repository
+
+* Go to **Artifact Registry > Repositories**
+* Select the checkbox on the left of your repository, Then click delete on top of your screen
+
 
 ## 🎉 You're Done!
 
